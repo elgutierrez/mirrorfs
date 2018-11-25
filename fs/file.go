@@ -32,14 +32,15 @@ type File struct {
 
 func (f *File) Attr(ctx context.Context, o *fuse.Attr) error {
 	f.RLock()
-	_ = f.readAttr()
-
+	defer f.RUnlock()
+	if err := f.readAttr();err != nil {
+		return err
+	}
 	*o = f.attr
-	f.RUnlock()
 	return nil
 }
 
-func (f *File) readAttr() (error){
+func (f *File) readAttr() error {
 	stats, err := os.Stat(f.path)
 	if err != nil {
 		//The real file does not exists. 
@@ -54,7 +55,7 @@ func (f *File) readAttr() (error){
 }
 
 
-func (f *File) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle,error) {
+func (f *File) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
 	log.Println(req, filepath.Base(f.path))
 	
 	fsHandler, err := os.OpenFile(f.path, int(req.Flags), f.attr.Mode)
@@ -80,7 +81,7 @@ func (f *File) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadR
 	defer f.RUnlock()
 	log.Println(req, filepath.Base(f.path))
 
-	if f.handler == nil{
+	if f.handler == nil {
 		log.Println("Read: File should be open, aborting request")
 		return fuse.ENOTSUP
 	}
@@ -102,13 +103,13 @@ func (f *File) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.Wri
 
 	log.Println(req, filepath.Base(f.path))
 
-	if f.handler == nil{
+	if f.handler == nil {
 		log.Println("Write: File should be open, aborting request")
 		return fuse.ENOTSUP
 	}
 
 	n, err := f.handler.WriteAt(req.Data, req.Offset)
-	if err != nil{
+	if err != nil {
 		log.Println("Write ERR: ", err)
 		return err
 	}
